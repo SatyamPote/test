@@ -1,0 +1,37 @@
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 2rem; }
+.container { max-width: 900px; margin: auto; }
+a.back-link { color: #5865f2; text-decoration: none; margin-bottom: 2rem; display: inline-block; }
+header { text-align: center; margin-bottom: 2rem; }
+header h1 { font-size: 2.5rem; }
+header p { font-size: 1.1rem; color: #a9a9a9; }
+
+/* --- Form --- */
+.form-container { background-color: #1e1e1e; padding: 2rem; border-radius: 8px; border: 1px solid #333; }
+.form-group { margin-bottom: 1.5rem; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+.form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border-radius: 5px; border: 1px solid #555; background-color: #3a3a3a; color: #f0f0f0; font-size: 1rem; box-sizing: border-box; }
+.form-group textarea { min-height: 150px; }
+button { width: 100%; background-color: #5865f2; color: #fff; cursor: pointer; border: none; padding: 1rem; font-size: 1.1rem; font-weight: bold; border-radius: 5px; }
+.error { color: #ff6b6b; border: 1px solid #ff6b6b; padding: 1rem; border-radius: 5px; margin-bottom: 1.5rem; }
+
+/* --- Results --- */
+.results-container { margin-top: 3rem; }
+.score-display { display: grid; grid-template-columns: 250px 1fr; gap: 2rem; align-items: center; background-color: #1e1e1e; padding: 2rem; border-radius: 8px; border: 1px solid #333; }
+.score-circle { width: 200px; height: 200px; border-radius: 50%; display: grid; place-items: center; position: relative; background: conic-gradient(var(--pass-color, #5865f2) calc(var(--score) * 1%), #333 0); transition: background 1s; }
+.score-circle::before { content: ""; display: block; width: 170px; height: 170px; background: #1e1e1e; border-radius: 50%; }
+.score-text { position: absolute; font-size: 3.5rem; font-weight: bold; }
+.score-verdict { text-align: left; }
+.verdict-title { font-size: 2.5rem; font-weight: bold; margin: 0; }
+.verdict-pass { color: #2da44e; }
+.verdict-fail { color: #ff8b8b; }
+.verdict-summary { font-size: 1.1rem; color: #ccc; margin-top: 0.5rem; }
+
+.improvements-container { margin-top: 2rem; }
+.improvements-container h2 { font-size: 1.75rem; border-bottom: 2px solid #5865f2; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+.checklist { list-style: none; padding: 0; }
+.checklist li { background-color: #1e1e1e; border: 1px solid #333; border-left: 5px solid; padding: 1rem 1.5rem; margin-bottom: 1rem; border-radius: 5px; display: flex; align-items: center; }
+.checklist .missing { border-left-color: #ff8b8b; }
+.checklist .suggestion { border-left-color: #82c0ff; }
+.checklist strong { margin-right: 0.5rem; }
+
+@media (max-width: 768px) { .score-display { grid-template-columns: 1fr; text-align: center; } .score-circle { margin: auto; } .score-verdict { text-align: center; margin-top: 1rem; } }

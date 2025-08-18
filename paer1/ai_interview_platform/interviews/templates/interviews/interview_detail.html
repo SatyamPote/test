@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ interview.name }}</title>
+    <style>
+        /* --- General & Layout --- */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #1e1e1e; color: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
+        .interview-container { width: 100%; max-width: 800px; background-color: #2a2a2a; border-radius: 10px; padding: 1.5rem 2rem; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        h1 { text-align: center; color: #fff; margin-top: 0; }
+        .video-feed { width: 100%; aspect-ratio: 16 / 9; background-color: #000; border-radius: 8px; margin-bottom: 1rem; }
+        
+        /* --- NEW: Chat Bubble Styling --- */
+        .conversation-log { height: 250px; overflow-y: auto; background-color: #1e1e1e; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #444; display: flex; flex-direction: column; gap: 0.75rem; }
+        .chat-message { max-width: 85%; padding: 0.75rem 1rem; border-radius: 15px; line-height: 1.4; word-wrap: break-word; }
+        .ai-message { background-color: #3a3a3a; border-bottom-left-radius: 3px; align-self: flex-start; }
+        .user-message { background-color: #5865f2; color: white; border-bottom-right-radius: 3px; align-self: flex-end; }
+        .ai-message strong { display: none; } /* Hide the "Interviewer:" prefix visually */
+
+        /* --- NEW: Responsive Controls --- */
+        .controls { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+        input[type="file"], input[type="text"], button { font-size: 1rem; padding: 0.75rem; border-radius: 5px; border: 1px solid #555; }
+        input[type="text"] { flex: 1 1 200px; background-color: #3a3a3a; color: #f0f0f0; }
+        button { background-color: #5865f2; color: #fff; cursor: pointer; border: none; transition: background-color 0.2s; white-space: nowrap; }
+        #mic-btn { background-color: #3a3a3a; padding: 0.75rem; }
+        #mic-btn.is-listening { background-color: #e64539; }
+        button:hover:not(:disabled) { background-color: #4752c4; }
+        #mic-btn:hover:not(:disabled) { background-color: #555; }
+        button:disabled { background-color: #444; cursor: not-allowed; }
+
+        /* --- Utility --- */
+        .hidden { display: none; }
+        .status { text-align: center; color: #aaa; margin-top: 1rem; font-style: italic; min-height: 1.2em; }
+        .report-link { display: block; text-align: center; margin-top: 1rem; background-color: #2da44e; color: white; padding: 0.8rem; border-radius: 5px; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="interview-container">
+        <h1>{{ interview.name }}</h1>
+        <video id="user-video" class="video-feed" autoplay playsinline muted></video>
+        <div id="conversation-log" class="conversation-log"></div>
+
+        <div id="initial-controls" class="controls">
+            <input type="file" id="resume-upload" accept=".pdf" required>
+            <button id="start-btn">Start Interview</button>
+        </div>
+
+        <div id="response-controls" class="controls hidden">
+            <input type="text" id="response-input" placeholder="Type or speak your response...">
+            <button id="mic-btn" title="Speak your response"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/></svg></button>
+            <button id="send-response-btn">Send</button>
+            <button id="end-interview-btn">End Interview</button>
+        </div>
+
+        <div id="status" class="status">Please allow camera access and upload your resume.</div>
+        <a href="#" id="download-report-link" class="report-link hidden" target="_blank">Download Final Report</a>
+    </div>
+
+    <div id="job-description" data-jd="{{ interview.job_description_for_ai }}" class="hidden"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ui = {
+                video: document.getElementById('user-video'),
+                log: document.getElementById('conversation-log'),
+                status: document.getElementById('status'),
+                reportLink: document.getElementById('download-report-link'),
+                initialControls: document.getElementById('initial-controls'),
+                responseControls: document.getElementById('response-controls'),
+                resumeUpload: document.getElementById('resume-upload'),
+                startBtn: document.getElementById('start-btn'),
+                responseInput: document.getElementById('response-input'),
+                sendBtn: document.getElementById('send-response-btn'),
+                endBtn: document.getElementById('end-interview-btn'),
+                micBtn: document.getElementById('mic-btn'),
+            };
+            const jobDescription = document.getElementById('job-description').getAttribute('data-jd');
+            let lastAiResponseText = ""; // NEW: State to store the previous AI response
+
+            // --- Speech Recognition Setup ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                Object.assign(recognition, { continuous: false, lang: 'en-US', interimResults: false, maxAlternatives: 1 });
+                recognition.onstart = () => { ui.micBtn.classList.add('is-listening'); updateStatus('Listening...'); };
+                recognition.onresult = (e) => { ui.responseInput.value = e.results[0][0].transcript; updateStatus('Transcription successful.'); };
+                recognition.onspeechend = () => { recognition.stop(); ui.micBtn.classList.remove('is-listening'); };
+                recognition.onerror = (e) => { ui.micBtn.classList.remove('is-listening'); updateStatus(`Speech error: ${e.error}`, true); };
+            } else {
+                ui.micBtn.disabled = true; updateStatus('Speech recognition not supported.', true);
+            }
+
+            // --- Setup camera ---
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => { ui.video.srcObject = stream; })
+                .catch(err => { updateStatus('Camera access denied. Please enable it.', true); });
+
+            // --- Event Listeners ---
+            ui.startBtn.addEventListener('click', startInterview);
+            ui.sendBtn.addEventListener('click', handleUserResponse);
+            ui.responseInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleUserResponse(); });
+            ui.endBtn.addEventListener('click', endInterview);
+            ui.micBtn.addEventListener('click', () => { if (recognition) recognition.start(); });
+
+            // --- Core UI & API Functions ---
+            function updateStatus(message, isError = false) { ui.status.textContent = message; ui.status.style.color = isError ? '#ff6b6b' : '#aaa'; }
+            function toggleControls(showResponseControls) { ui.initialControls.classList.toggle('hidden', showResponseControls); ui.responseControls.classList.toggle('hidden', !showResponseControls); }
+            function setButtonsDisabled(disabled) { Object.values(ui).filter(el => el.tagName === 'BUTTON').forEach(btn => btn.disabled = disabled); }
+            
+            /**
+             * FINAL, STATEFUL FUNCTION TO HANDLE AI RESPONSE
+             * Compares new response with old one to isolate what's new for logging and speaking.
+             * @param {string} rawHtml - The full HTML from the AI's response.
+             */
+            function handleAiResponse(rawHtml) {
+                window.speechSynthesis.cancel(); // Stop any previous speech immediately
+                
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = rawHtml;
+                const fullText = (tempDiv.textContent || tempDiv.innerText).trim();
+
+                // 1. Find the NEW part of the text by comparing with the last known response
+                const newTextPart = fullText.replace(lastAiResponseText, "").trim();
+                lastAiResponseText = fullText; // Update state for the next turn
+
+                if (!newTextPart) { // If nothing new was said, do nothing
+                    setButtonsDisabled(false);
+                    return;
+                }
+
+                // 2. Format the new text for the chat log (handles multiple new lines)
+                const messages = newTextPart.split('🤖 Interviewer:').filter(m => m.trim() !== "");
+                messages.forEach(msg => {
+                    const messageEl = document.createElement('p');
+                    messageEl.className = 'chat-message ai-message';
+                    messageEl.textContent = msg.trim();
+                    ui.log.appendChild(messageEl);
+                });
+                ui.log.scrollTop = ui.log.scrollHeight;
+
+                // 3. Prepare the new text for speech (clean it up)
+                const textToSpeak = messages.join(' ').replace(/^\d+\.\s*/, '').trim();
+
+                if (textToSpeak) {
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                    utterance.onend = () => {
+                        setButtonsDisabled(false);
+                        updateStatus('AI has responded. Please provide your answer.');
+                    };
+                    utterance.onerror = (e) => {
+                        console.error('Speech synthesis error:', e);
+                        setButtonsDisabled(false);
+                        updateStatus('AI has responded. Please provide your answer.');
+                    };
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    setButtonsDisabled(false);
+                }
+            }
+            
+            async function apiCall(url, formData) {
+                const response = await fetch(url, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data;
+            }
+
+            async function startInterview() {
+                if (!ui.resumeUpload.files.length) { updateStatus('Please upload your resume (PDF).', true); return; }
+                updateStatus('Starting interview...');
+                setButtonsDisabled(true);
+                const formData = new FormData();
+                formData.append('resume', ui.resumeUpload.files[0]);
+                formData.append('job_description', jobDescription);
+                try {
+                    const data = await apiCall("{% url 'interviews:start_interview_api' %}", formData);
+                    toggleControls(true);
+                    handleAiResponse(data.conversation);
+                } catch (error) {
+                    updateStatus(`Error: ${error.message}`, true);
+                    setButtonsDisabled(false);
+                }
+            }
+
+            function handleUserResponse() {
+                const userText = ui.responseInput.value.trim();
+                if (!userText) { updateStatus('Please provide a response.', true); return; }
+                
+                // Add user message to log
+                const messageEl = document.createElement('p');
+                messageEl.className = 'chat-message user-message';
+                messageEl.textContent = userText;
+                ui.log.appendChild(messageEl);
+                ui.log.scrollTop = ui.log.scrollHeight;
+
+                ui.responseInput.value = '';
+                updateStatus('Processing...');
+                setButtonsDisabled(true);
+                const formData = new FormData();
+                formData.append('response', userText);
+                apiCall("{% url 'interviews:handle_response_api' %}", formData)
+                    .then(data => handleAiResponse(data.conversation))
+                    .catch(error => {
+                        updateStatus(`Error: ${error.message}`, true);
+                        setButtonsDisabled(false);
+                    });
+            }
+
+            async function endInterview() {
+                updateStatus('Ending interview...');
+                setButtonsDisabled(true);
+                ui.responseControls.classList.add('hidden');
+                try {
+                    const data = await apiCall("{% url 'interviews:end_interview_api' %}", new FormData());
+                    handleAiResponse(data.conversation);
+                    updateStatus('Interview ended. Download your report below.');
+                    if (data.download_report_url) {
+                        ui.reportLink.href = data.download_report_url;
+                        ui.reportLink.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    updateStatus(`Error: ${error.message}`, true);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

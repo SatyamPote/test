@@ -1,0 +1,65 @@
+<load static>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'resume_analyzer/css/ats_checker_page.css' %}">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'homepage' %}" class="back-link">&larr; Back to Home</a>
+        <header>
+            <h1>{{ title }}</h1>
+            <p>{{ description }}</p>
+        </header>
+
+        <div class="form-container">
+             {% if error %}<p class="error">{{ error }}</p>{% endif %}
+            <form method="post" enctype="multipart/form-data">
+                <div class="form-group"><label for="resume">Upload Resume (PDF)</label><input type="file" id="resume" name="resume" accept=".pdf" required></div>
+                <div class="form-group"><label for="jd">Job Description</label><textarea id="jd" name="jd" required></textarea></div>
+                <div class="form-group"><label for="github_user">GitHub Username</label><input type="text" id="github_user" name="github_user" required></div>
+                <button type="submit">{{ button_text }}</button>
+            </form>
+        </div>
+
+        {% if submitted and json_result %}
+        <div class="results-container">
+            <div class="score-display">
+                {% with score=json_result.overall_score %}
+                <div class="score-circle" style="--score: {{ score }}; --pass-color: {% if score > 75 %}#2da44e{% else %}#ff8b8b{% endif %};">
+                    <span class="score-text">{{ score }}</span>
+                </div>
+                <div class="score-verdict">
+                    {% if score > 75 %}
+                        <h2 class="verdict-title verdict-pass">Likely to Pass</h2>
+                        <p class="verdict-summary">Your resume is well-aligned with the job description and has a high chance of passing automated screening.</p>
+                    {% else %}
+                        <h2 class="verdict-title verdict-fail">Needs Improvement</h2>
+                        <p class="verdict-summary">Your resume may be filtered out by ATS. Focus on the key improvements below to increase your score.</p>
+                    {% endif %}
+                </div>
+                {% endwith %}
+            </div>
+        </div>
+
+        <div class="improvements-container">
+            <h2>Actionable Checklist to Improve Your Score</h2>
+            <ul class="checklist">
+                {% for section_name, details in json_result.sections.items %}
+                    {% for item in details.missing %}
+                        <li class="missing"><strong>{{ section_name|capfirst }}:</strong> Add details about "<strong>{{ item }}</strong>" to better match the job requirements.</li>
+                    {% endfor %}
+                    {% for item in details.suggestions %}
+                        <li class="suggestion"><strong>{{ section_name|capfirst }}:</strong> Consider this suggestion: <strong>{{ item }}</strong>.</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

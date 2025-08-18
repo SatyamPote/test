@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'resume_analyzer/css/analyzer_page.css' %}">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'homepage' %}" class="back-link">&larr; Back to Home</a>
+        <header>
+            <h1>{{ title }}</h1>
+            <p>{{ description }}</p>
+        </header>
+
+        <div class="form-container">
+            {% if error %}<p class="error">{{ error }}</p>{% endif %}
+            <form method="post" enctype="multipart/form-data">
+                <div class="form-group"><label for="resume">Upload Resume (PDF)</label><input type="file" id="resume" name="resume" accept=".pdf" required></div>
+                <div class="form-group"><label for="jd">Job Description</label><textarea id="jd" name="jd" required></textarea></div>
+                <div class="form-group"><label for="github_user">GitHub Username</label><input type="text" id="github_user" name="github_user" required></div>
+                <button type="submit">{{ button_text }}</button>
+            </form>
+        </div>
+
+        {% if submitted and json_result %}
+        <div class="results-container">
+            <div class="top-summary-grid">
+                <div class="score-card">
+                    <h3>Overall Score</h3>
+                    <p class="score-value">{{ json_result.overall_score }}</p>
+                </div>
+                <div class="summary-card">
+                    <h3>AI Summary</h3>
+                    <blockquote>{{ json_result.summary }}</blockquote>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <h3>Suggested Outreach Quote</h3>
+                <p>This is a potential message you or a recruiter could use. Use it as inspiration.</p>
+                <blockquote>{{ json_result.killer_quote }}</blockquote>
+            </div>
+
+            <h2>Detailed Section Analysis</h2>
+            <div class="section-grid">
+                {% for section_name, details in json_result.sections.items %}
+                <div class="section-card">
+                    <h3>{{ section_name|capfirst }} <span class="score">{{ details.score }}/100</span></h3>
+                    <p><em>{{ details.comment }}</em></p>
+                    {% if details.missing %}
+                    <ul class="missing">
+                        {% for item in details.missing %}<li>{{ item }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                    {% if details.suggestions %}
+                    <ul class="suggestions">
+                        {% for item in details.suggestions %}<li>{{ item }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if chart_html %}
+            <div class="chart-container">
+                <h2>Skills Radar Chart</h2>
+                {{ chart_html|safe }} {# The |safe filter is crucial for rendering the chart's script tags #}
+            </div>
+            {% endif %}
+
+            {% if report_url %}
+            <a href="{{ report_url }}" class="download-link" target="_blank">Download Full PDF Report</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+</body>
+</html>
